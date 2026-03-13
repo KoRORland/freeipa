@@ -333,6 +333,16 @@ def prepare_ipa_server(master):
         ]
     )
 
+    # Add custom password policy
+    # Using existing testgroup for the custom password policy
+    master.run_command(
+        [
+            "ipa", "pwpolicy-add", "testgroup",
+            "--maxlife=4", "--minlife=2",
+            "--history=2", "--priority=3"
+        ]
+    )
+
 def run_migrate(
     host, mode, remote_host, bind_dn=None, bind_pwd=None, extra_args=None
 ):
@@ -1145,6 +1155,22 @@ class TestIPAMigrationProdMode(MigrationTest):
             "ipa", "passkeyconfig-show"
         ])
         assert CMD_OUTPUT in result.stdout_text
+
+    def test_ipa_migrate_custom_pwpolicy(self):
+        """
+        This testcase checks that custom password policies
+        are migrated from remote server to local server in prod mode.
+        """
+        policy_name = "testgroup"
+        result = self.replicas[0].run_command([
+            "ipa", "pwpolicy-show", policy_name
+        ])
+        assert result.returncode == 0
+        assert f"Group: {policy_name}" in result.stdout_text
+        assert "Max lifetime (days): 4" in result.stdout_text
+        assert "Min lifetime (hours): 2" in result.stdout_text
+        assert "Password history size: 2" in result.stdout_text
+        assert "Priority: 3" in result.stdout_text
 
     def test_ipa_migrate_check_service_status(self):
         """
